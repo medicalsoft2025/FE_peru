@@ -45,6 +45,11 @@ use App\Http\Controllers\Api\UserController;
 |
 */
 
+// 🌟 Ruta pública que NO pasa por Tenancy
+Route::prefix('pe')->group(function () {
+    Route::post('create-tenant', [SetupController::class, 'createTenant']);
+});
+
 Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,

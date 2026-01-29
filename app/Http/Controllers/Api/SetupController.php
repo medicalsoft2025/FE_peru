@@ -164,6 +164,39 @@ public function migrate(Request $request)
     }
 }
 
+public function createTenant(Request $request)
+{
+    $request->validate([
+        'id' => 'required|string|unique:tenants,id',
+        'domain' => 'required|string|unique:domains,domain',
+    ]);
+
+    try {
+        $tenant = Tenant::create([
+            'id' => $request->id,
+            'tenancy_db_name' => 'FEPE_' . $request->id,
+            'data' => null,
+        ]);
+
+        $tenant->domains()->create([
+            'domain' => $request->domain,
+        ]);
+
+        return response()->json([
+            'message' => 'Tenant creado con éxito. Ahora puedes ejecutar migraciones y seeders.',
+            'tenant' => $tenant,
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error creando tenant',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+
 
     /**
      * Ejecutar seeders
