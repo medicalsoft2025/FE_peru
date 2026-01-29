@@ -41,23 +41,23 @@ Route::get('/health', [App\Http\Controllers\HealthController::class, 'check']);
 Route::get('/ping', [App\Http\Controllers\HealthController::class, 'ping']);
 
 // Setup del sistema
-Route::prefix('setup')->group(function () {
+Route::prefix('/pe/setup')->group(function () {
     Route::post('/migrate', [SetupController::class, 'migrate']);
     Route::post('/seed', [SetupController::class, 'seed']);
     Route::get('/status', [SetupController::class, 'status']);
 });
 
 // Inicialización del sistema
-Route::post('/auth/initialize', [AuthController::class, 'initialize']);
+Route::post('pe/auth/initialize', [AuthController::class, 'initialize']);
 
 // Autenticación
-Route::post('/auth/login', [AuthController::class, 'login'])
+Route::post('/pe/auth/login', [AuthController::class, 'login'])
     ->middleware('throttle:auth');
 
 // ========================
 // RUTAS PROTEGIDAS (CON AUTENTICACIÓN)
 // ========================
-Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+Route::prefix('pe/v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
     // ========================
     // AUTENTICACIÓN Y USUARIO
