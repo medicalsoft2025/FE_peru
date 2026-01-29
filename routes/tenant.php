@@ -46,40 +46,50 @@ use App\Http\Controllers\Api\UserController;
 */
 
 Route::middleware([
-    'web',
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
-])->group(function () {
-    Route::get('/', function () {
-        return 'This is your multi-tenant application. The id of the current tenant is ' . tenant('id');
+])->prefix('pe')->group(function() {
+
+    // ========================
+    // RUTAS PÚBLICAS
+    // ========================
+
+    // Información del sistema
+    Route::get('system/info', [AuthController::class, 'systemInfo']);
+
+    // Health Check endpoints (sin autenticación para monitoreo externo)
+    Route::get('health', [App\Http\Controllers\HealthController::class, 'check']);
+    Route::get('ping', [App\Http\Controllers\HealthController::class, 'ping']);
+
+    // Setup del sistema
+    Route::prefix('setup')->group(function () {
+        Route::post('migrate', [SetupController::class, 'migrate']);
+        Route::post('seed', [SetupController::class, 'seed']);
+        Route::get('status', [SetupController::class, 'status']);
     });
-});
 
-Route::middleware([
-    'api',
-    InitializeTenancyByDomain::class,
-    PreventAccessFromCentralDomains::class,
-])->group(function() {
+    // Auth Public
+    Route::prefix('auth')->group(function () {
+        Route::post('initialize', [AuthController::class, 'initialize']);
+        Route::post('login', [AuthController::class, 'login'])->middleware('throttle:auth');
+    });
 
-    Route::prefix('/pe/setup')->group(function () {
-    Route::post('/migrate', [SetupController::class, 'migrate']);
-    Route::post('/seed', [SetupController::class, 'seed']);
-    Route::get('/status', [SetupController::class, 'status']);
-});
     // ========================
     // RUTAS PROTEGIDAS (CON AUTENTICACIÓN)
     // ========================
-    Route::prefix('pe/v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
 
         // ========================
         // AUTENTICACIÓN Y USUARIO
         // ========================
-        Route::post('/auth/logout', [AuthController::class, 'logout']);
-        Route::get('/auth/me', [AuthController::class, 'me']);
-        Route::post('/auth/create-user', [AuthController::class, 'createUser']);
+        Route::prefix('auth')->group(function () {
+            Route::post('logout', [AuthController::class, 'logout']);
+            Route::get('me', [AuthController::class, 'me']);
+            Route::post('create-user', [AuthController::class, 'createUser']);
+        });
         
         // Usuario autenticado
-        Route::get('/user', function (Request $request) {
+        Route::get('user', function (Request $request) {
             return $request->user();
         });
 
@@ -102,11 +112,11 @@ Route::middleware([
         // DASHBOARD Y ESTADÍSTICAS
         // ========================
         Route::prefix('dashboard')->group(function () {
-            Route::get('/statistics', [DashboardController::class, 'statistics']);
-            Route::get('/monthly-summary', [DashboardController::class, 'monthlySummary']);
-            Route::get('/client-statistics', [DashboardController::class, 'clientStatistics']);
-            Route::get('/requires-resend', [DashboardController::class, 'requiresResend']);
-            Route::get('/expired-certificates', [DashboardController::class, 'expiredCertificates']);
+            Route::get('statistics', [DashboardController::class, 'statistics']);
+            Route::get('monthly-summary', [DashboardController::class, 'monthlySummary']);
+            Route::get('client-statistics', [DashboardController::class, 'clientStatistics']);
+            Route::get('requires-resend', [DashboardController::class, 'requiresResend']);
+            Route::get('expired-certificates', [DashboardController::class, 'expiredCertificates']);
         });
 
         // ========================
@@ -128,19 +138,19 @@ Route::middleware([
         // SETUP AVANZADO
         // ========================
         Route::prefix('setup')->group(function () {
-            Route::post('/complete', [SetupController::class, 'setup']);
-            Route::post('/configure-sunat', [SetupController::class, 'configureSunat']);
+            Route::post('complete', [SetupController::class, 'setup']);
+            Route::post('configure-sunat', [SetupController::class, 'configureSunat']);
         });
 
         // ========================
         // GESTIÓN DE UBIGEOS
         // ========================
         Route::prefix('ubigeos')->group(function () {
-            Route::get('/regiones', [UbigeoController::class, 'getRegiones']);
-            Route::get('/provincias', [UbigeoController::class, 'getProvincias']);
-            Route::get('/distritos', [UbigeoController::class, 'getDistritos']);
-            Route::get('/search', [UbigeoController::class, 'searchUbigeo']);
-            Route::get('/{id}', [UbigeoController::class, 'getUbigeoById']);
+            Route::get('regiones', [UbigeoController::class, 'getRegiones']);
+            Route::get('provincias', [UbigeoController::class, 'getProvincias']);
+            Route::get('distritos', [UbigeoController::class, 'getDistritos']);
+            Route::get('search', [UbigeoController::class, 'searchUbigeo']);
+            Route::get('{id}', [UbigeoController::class, 'getUbigeoById']);
         });
 
         // ========================
@@ -148,14 +158,17 @@ Route::middleware([
         // ========================
         
         // Empresas
-        Route::post('/companies/complete', [CompanyController::class, 'storeComplete']); // Crear empresa completa (antes del apiResource)
+        Route::post('companies/complete', [CompanyController::class, 'storeComplete']); // Crear empresa completa (antes del apiResource)
         Route::apiResource('companies', CompanyController::class);
-        Route::post('/companies/{company}/activate', [CompanyController::class, 'activate']);
-        Route::post('/companies/{company}/toggle-production', [CompanyController::class, 'toggleProductionMode']);
-        Route::post('/companies/{company}/upload-files', [CompanyController::class, 'uploadFiles']); // Subir logo y certificado
-        Route::get('/companies/{company}/pdf-info', [CompanyController::class, 'getPdfInfo']);
-        Route::put('/companies/{company}/pdf-info', [CompanyController::class, 'updatePdfInfo']);
-        Route::get('/companies/{company}/correlativos', [CompanyController::class, 'getCorrelativos']);
+        
+        Route::prefix('companies/{company}')->group(function() {
+            Route::post('activate', [CompanyController::class, 'activate']);
+            Route::post('toggle-production', [CompanyController::class, 'toggleProductionMode']);
+            Route::post('upload-files', [CompanyController::class, 'uploadFiles']); // Subir logo y certificado
+            Route::get('pdf-info', [CompanyController::class, 'getPdfInfo']);
+            Route::put('pdf-info', [CompanyController::class, 'updatePdfInfo']);
+            Route::get('correlativos', [CompanyController::class, 'getCorrelativos']);
+        });
 
         // Configuraciones de empresas
         Route::prefix('companies/{company_id}/config')->group(function () {
@@ -170,8 +183,8 @@ Route::middleware([
 
         // Configuraciones generales
         Route::prefix('config')->group(function () {
-            Route::get('/defaults', [CompanyConfigController::class, 'getDefaults']);
-            Route::get('/summary', [CompanyConfigController::class, 'getSummary']);
+            Route::get('defaults', [CompanyConfigController::class, 'getDefaults']);
+            Route::get('summary', [CompanyConfigController::class, 'getSummary']);
         });
 
         // ========================
@@ -189,7 +202,7 @@ Route::middleware([
 
         // Credenciales GRE - Configuraciones globales
         Route::prefix('gre-credentials')->group(function () {
-            Route::get('/defaults/{mode}', [GreCredentialsController::class, 'getDefaults'])
+            Route::get('defaults/{mode}', [GreCredentialsController::class, 'getDefaults'])
                 ->where('mode', 'beta|produccion');
         });
 
@@ -197,31 +210,33 @@ Route::middleware([
         // SUCURSALES
         // ========================
         Route::apiResource('branches', BranchController::class);
-        Route::post('/branches/{branch}/activate', [BranchController::class, 'activate']);
-        Route::get('/companies/{company}/branches', [BranchController::class, 'getByCompany']);
-        Route::get('/companies/{company}/branches/search/codigo', [BranchController::class, 'searchByCodigo']);
-        Route::get('/companies/{company}/branches/search/ubigeo', [BranchController::class, 'searchByUbigeo']);
+        Route::post('branches/{branch}/activate', [BranchController::class, 'activate']);
+        Route::get('companies/{company}/branches', [BranchController::class, 'getByCompany']);
+        Route::get('companies/{company}/branches/search/codigo', [BranchController::class, 'searchByCodigo']);
+        Route::get('companies/{company}/branches/search/ubigeo', [BranchController::class, 'searchByUbigeo']);
 
         // ========================
         // CLIENTES
         // ========================
         Route::apiResource('clients', ClientController::class);
-        Route::post('/clients/{client}/activate', [ClientController::class, 'activate']);
-        Route::get('/companies/{company}/clients', [ClientController::class, 'getByCompany']);
-        Route::post('/clients/search-by-document', [ClientController::class, 'searchByDocument']);
+        Route::post('clients/{client}/activate', [ClientController::class, 'activate']);
+        Route::get('companies/{company}/clients', [ClientController::class, 'getByCompany']);
+        Route::post('clients/search-by-document', [ClientController::class, 'searchByDocument']);
 
         // ========================
         // CORRELATIVOS
         // ========================
-        Route::get('/branches/{branch}/correlatives', [CorrelativeController::class, 'index']);
-        Route::post('/branches/{branch}/correlatives', [CorrelativeController::class, 'store']);
-        Route::put('/branches/{branch}/correlatives/{correlative}', [CorrelativeController::class, 'update']);
-        Route::delete('/branches/{branch}/correlatives/{correlative}', [CorrelativeController::class, 'destroy']);
-        Route::post('/branches/{branch}/correlatives/batch', [CorrelativeController::class, 'createBatch']);
-        Route::post('/branches/{branch}/correlatives/{correlative}/increment', [CorrelativeController::class, 'increment']);
+        Route::prefix('branches/{branch}/correlatives')->group(function() {
+            Route::get('/', [CorrelativeController::class, 'index']);
+            Route::post('/', [CorrelativeController::class, 'store']);
+            Route::put('/{correlative}', [CorrelativeController::class, 'update']);
+            Route::delete('/{correlative}', [CorrelativeController::class, 'destroy']);
+            Route::post('/batch', [CorrelativeController::class, 'createBatch']);
+            Route::post('/{correlative}/increment', [CorrelativeController::class, 'increment']);
+        });
         
         // Catálogos de correlativos
-        Route::get('/correlatives/document-types', [CorrelativeController::class, 'getDocumentTypes']);
+        Route::get('correlatives/document-types', [CorrelativeController::class, 'getDocumentTypes']);
 
         // ========================
         // DOCUMENTOS ELECTRÓNICOS SUNAT
@@ -229,7 +244,7 @@ Route::middleware([
 
         // PDF Formatos
         Route::prefix('pdf')->group(function () {
-            Route::get('/formats', [PdfController::class, 'getAvailableFormats']);
+            Route::get('formats', [PdfController::class, 'getAvailableFormats']);
         });
 
         // Facturas
@@ -257,23 +272,23 @@ Route::middleware([
             Route::post('/', [BoletaController::class, 'store']);
 
             // Funciones de resumen diario desde boletas (ANTES de las rutas con {id})
-            Route::get('/fechas-pendientes-resumen', [BoletaController::class, 'getFechasBoletasPendientes']);
-            Route::get('/pending-for-summary', [BoletaController::class, 'getBoletsasPendingForSummary']);
-            Route::post('/create-daily-summary', [BoletaController::class, 'createDailySummaryFromDate']);
-            Route::post('/create-multiple-summaries', [BoletaController::class, 'createMultipleDailySummaries']);
-            Route::post('/create-all-pending-summaries', [BoletaController::class, 'createAllPendingSummaries']);
-            Route::post('/summary/{id}/send-sunat', [BoletaController::class, 'sendSummaryToSunat']);
-            Route::post('/summary/{id}/check-status', [BoletaController::class, 'checkSummaryStatus']);
+            Route::get('fechas-pendientes-resumen', [BoletaController::class, 'getFechasBoletasPendientes']);
+            Route::get('pending-for-summary', [BoletaController::class, 'getBoletsasPendingForSummary']);
+            Route::post('create-daily-summary', [BoletaController::class, 'createDailySummaryFromDate']);
+            Route::post('create-multiple-summaries', [BoletaController::class, 'createMultipleDailySummaries']);
+            Route::post('create-all-pending-summaries', [BoletaController::class, 'createAllPendingSummaries']);
+            Route::post('summary/{id}/send-sunat', [BoletaController::class, 'sendSummaryToSunat']);
+            Route::post('summary/{id}/check-status', [BoletaController::class, 'checkSummaryStatus']);
 
             // Gestión de boletas vencidas y anulación local
-            Route::get('/vencidas', [BoletaController::class, 'getBoletasVencidas']);
-            Route::post('/anular-localmente', [BoletaController::class, 'anularBoletasLocalmente']);
+            Route::get('vencidas', [BoletaController::class, 'getBoletasVencidas']);
+            Route::post('anular-localmente', [BoletaController::class, 'anularBoletasLocalmente']);
 
             // Gestión de anulación oficial (mediante resumen diario)
-            Route::get('/anulables', [BoletaController::class, 'getBoletasAnulables']);
-            Route::post('/anular-oficialmente', [BoletaController::class, 'anularBoletasOficialmente']);
-            Route::get('/pendientes-anulacion', [BoletaController::class, 'getBoletasPendientesAnulacion']);
-            Route::get('/anuladas', [BoletaController::class, 'getBoletasAnuladas']);
+            Route::get('anulables', [BoletaController::class, 'getBoletasAnulables']);
+            Route::post('anular-oficialmente', [BoletaController::class, 'anularBoletasOficialmente']);
+            Route::get('pendientes-anulacion', [BoletaController::class, 'getBoletasPendientesAnulacion']);
+            Route::get('anuladas', [BoletaController::class, 'getBoletasAnuladas']);
 
             // Rutas específicas de boletas (DESPUÉS de las rutas sin {id})
             Route::get('/{id}', [BoletaController::class, 'show']);
@@ -300,8 +315,8 @@ Route::middleware([
             Route::post('/{id}/generate-pdf', [DailySummaryController::class, 'generatePdf']);
 
             // Funciones de gestión masiva
-            Route::get('/pending', [DailySummaryController::class, 'getPendingSummaries']);
-            Route::post('/check-all-pending', [DailySummaryController::class, 'checkAllPendingStatus']);
+            Route::get('pending', [DailySummaryController::class, 'getPendingSummaries']);
+            Route::post('check-all-pending', [DailySummaryController::class, 'checkAllPendingStatus']);
         });
 
         // Notas de Crédito
@@ -317,7 +332,7 @@ Route::middleware([
             Route::post('/{id}/generate-pdf', [CreditNoteController::class, 'generatePdf']);
 
             // Catálogo de motivos
-            Route::get('/catalogs/motivos', [CreditNoteController::class, 'getMotivos']);
+            Route::get('catalogs/motivos', [CreditNoteController::class, 'getMotivos']);
         });
 
         // Notas de Débito
@@ -333,7 +348,7 @@ Route::middleware([
             Route::post('/{id}/generate-pdf', [DebitNoteController::class, 'generatePdf']);
 
             // Catálogo de motivos
-            Route::get('/catalogs/motivos', [DebitNoteController::class, 'getMotivos']);
+            Route::get('catalogs/motivos', [DebitNoteController::class, 'getMotivos']);
         });
 
         // Notas de Venta
@@ -364,10 +379,10 @@ Route::middleware([
         Route::prefix('voided-documents')->group(function () {
             Route::get('/', [VoidedDocumentController::class, 'index']);
             Route::post('/', [VoidedDocumentController::class, 'store']);
-            Route::get('/available-documents', [VoidedDocumentController::class, 'getDocumentsForVoiding']);
-            Route::get('/reasons', [VoidedDocumentController::class, 'getVoidedReasons']);
-            Route::get('/reasons/categories', [VoidedDocumentController::class, 'getVoidedCategories']);
-            Route::get('/reasons/{codigo}', [VoidedDocumentController::class, 'getVoidedReasonByCode']);
+            Route::get('available-documents', [VoidedDocumentController::class, 'getDocumentsForVoiding']);
+            Route::get('reasons', [VoidedDocumentController::class, 'getVoidedReasons']);
+            Route::get('reasons/categories', [VoidedDocumentController::class, 'getVoidedCategories']);
+            Route::get('reasons/{codigo}', [VoidedDocumentController::class, 'getVoidedReasonByCode']);
             Route::get('/{id}', [VoidedDocumentController::class, 'show']);
             Route::post('/{id}/send-sunat', [VoidedDocumentController::class, 'sendToSunat']);
             Route::post('/{id}/check-status', [VoidedDocumentController::class, 'checkStatus']);
@@ -388,8 +403,8 @@ Route::middleware([
             Route::post('/{id}/generate-pdf', [DispatchGuideController::class, 'generatePdf']);
 
             // Catálogos
-            Route::get('/catalogs/transfer-reasons', [DispatchGuideController::class, 'getTransferReasons']);
-            Route::get('/catalogs/transport-modes', [DispatchGuideController::class, 'getTransportModes']);
+            Route::get('catalogs/transfer-reasons', [DispatchGuideController::class, 'getTransferReasons']);
+            Route::get('catalogs/transport-modes', [DispatchGuideController::class, 'getTransportModes']);
         });
 
         // ========================
@@ -397,16 +412,16 @@ Route::middleware([
         // ========================
         Route::prefix('consulta-cpe')->middleware('throttle:cpe-consulta')->group(function () {
             // Consultas individuales por tipo de documento
-            Route::post('/factura/{id}', [ConsultaCpeController::class, 'consultarFactura']);
-            Route::post('/boleta/{id}', [ConsultaCpeController::class, 'consultarBoleta']);
-            Route::post('/nota-credito/{id}', [ConsultaCpeController::class, 'consultarNotaCredito']);
-            Route::post('/nota-debito/{id}', [ConsultaCpeController::class, 'consultarNotaDebito']);
+            Route::post('factura/{id}', [ConsultaCpeController::class, 'consultarFactura']);
+            Route::post('boleta/{id}', [ConsultaCpeController::class, 'consultarBoleta']);
+            Route::post('nota-credito/{id}', [ConsultaCpeController::class, 'consultarNotaCredito']);
+            Route::post('nota-debito/{id}', [ConsultaCpeController::class, 'consultarNotaDebito']);
 
             // Consulta masiva
-            Route::post('/masivo', [ConsultaCpeController::class, 'consultarDocumentosMasivo']);
+            Route::post('masivo', [ConsultaCpeController::class, 'consultarDocumentosMasivo']);
 
             // Estadísticas de consultas
-            Route::get('/estadisticas', [ConsultaCpeController::class, 'estadisticasConsultas']);
+            Route::get('estadisticas', [ConsultaCpeController::class, 'estadisticasConsultas']);
         });
 
         // ========================
@@ -414,19 +429,19 @@ Route::middleware([
         // ========================
         Route::prefix('bancarizacion')->group(function () {
             // Catálogo de medios de pago
-            Route::get('/medios-pago', [BancarizacionController::class, 'getMediosPago'])
+            Route::get('medios-pago', [BancarizacionController::class, 'getMediosPago'])
                 ->name('api.v1.bancarizacion.medios-pago');
 
             // Validar si una operación aplica bancarización
-            Route::post('/validar', [BancarizacionController::class, 'validar'])
+            Route::post('validar', [BancarizacionController::class, 'validar'])
                 ->name('api.v1.bancarizacion.validar');
 
             // Reportes
-            Route::get('/reportes/sin-bancarizacion', [BancarizacionController::class, 'reporteSinBancarizacion'])
+            Route::get('reportes/sin-bancarizacion', [BancarizacionController::class, 'reporteSinBancarizacion'])
                 ->name('api.v1.bancarizacion.reportes.sin-bancarizacion');
 
             // Estadísticas de cumplimiento
-            Route::get('/estadisticas', [BancarizacionController::class, 'estadisticas'])
+            Route::get('estadisticas', [BancarizacionController::class, 'estadisticas'])
                 ->name('api.v1.bancarizacion.estadisticas');
         });
 
@@ -435,28 +450,28 @@ Route::middleware([
         // ========================
         Route::prefix('catalogos')->group(function () {
             // Catálogo de Detracciones (Catálogo No. 54 SUNAT)
-            Route::get('/detracciones', [CatalogController::class, 'getDetracciones'])
+            Route::get('detracciones', [CatalogController::class, 'getDetracciones'])
                 ->name('api.v1.catalogos.detracciones');
 
-            Route::get('/detracciones/buscar', [CatalogController::class, 'buscarDetracciones'])
+            Route::get('detracciones/buscar', [CatalogController::class, 'buscarDetracciones'])
                 ->name('api.v1.catalogos.detracciones.buscar');
 
-            Route::get('/detracciones/por-porcentaje', [CatalogController::class, 'getDetraccionesPorPorcentaje'])
+            Route::get('detracciones/por-porcentaje', [CatalogController::class, 'getDetraccionesPorPorcentaje'])
                 ->name('api.v1.catalogos.detracciones.por-porcentaje');
 
-            Route::get('/detracciones/medios-pago', [CatalogController::class, 'getMediosPagoDetraccion'])
+            Route::get('detracciones/medios-pago', [CatalogController::class, 'getMediosPagoDetraccion'])
                 ->name('api.v1.catalogos.detracciones.medios-pago');
 
-            Route::get('/detracciones/{codigo}', [CatalogController::class, 'getDetraccionPorCodigo'])
+            Route::get('detracciones/{codigo}', [CatalogController::class, 'getDetraccionPorCodigo'])
                 ->name('api.v1.catalogos.detracciones.show');
 
-            Route::post('/detracciones/calcular', [CatalogController::class, 'calcularDetraccion'])
+            Route::post('detracciones/calcular', [CatalogController::class, 'calcularDetraccion'])
                 ->name('api.v1.catalogos.detracciones.calcular');
         });
     });
 
-    // ========================
-    // RUTAS ADICIONALES - CONSULTA CPE MEJORADA
-    // ========================
+    // Rutas adicionales (Consulta CPE Mejorada)
+    // Note: api_consulta_mejorada.php defines its own prefix 'v1'. 
+    // Since we are inside 'api/pe', it will become 'api/pe/v1/...' which is correct.
     require __DIR__.'/api_consulta_mejorada.php';
 });

@@ -26,7 +26,7 @@ class TenancyServiceProvider extends ServiceProvider
             Events\TenantCreated::class => [
                 JobPipeline::make([
                     Jobs\CreateDatabase::class,
-                    Jobs\MigrateDatabase::class,
+                    //Jobs\MigrateDatabase::class,
                     // Jobs\SeedDatabase::class,
 
                     // Your own jobs to prepare the tenant.
@@ -100,7 +100,7 @@ class TenancyServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->bootEvents();
-        $this->mapRoutes();
+        // $this->mapRoutes(); // Comentado para evitar duplicidad, ya que tenancy.php suele cargar las rutas
 
         $this->makeTenancyMiddlewareHighestPriority();
     }
