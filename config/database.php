@@ -96,6 +96,18 @@ return [
             'search_path' => 'public',
             'sslmode' => 'prefer',
         ],
+        'tenant' => [
+        'driver' => 'mysql',
+        'host' => env('DB_HOST'),
+        'database' => null, // ⚠️ tenancy la setea dinámicamente
+        'username' => env('DB_USERNAME'),
+        'password' => env('DB_PASSWORD'),
+        'charset' => 'utf8mb4',
+        'collation' => 'utf8mb4_unicode_ci',
+        'prefix' => '',
+        'strict' => true,
+        'engine' => null,
+    ],
 
         'sqlsrv' => [
             'driver' => 'sqlsrv',

@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use App\Helpers\StoragePathHelper;
+use App\Models\Tenant;
 
 class SetupController extends Controller
 {
@@ -116,24 +117,53 @@ class SetupController extends Controller
     /**
      * Migrar base de datos
      */
-    public function migrate(Request $request)
-    {
-        try {
-            Artisan::call('migrate', ['--force' => true]);
-            $output = Artisan::output();
+public function migrate(Request $request)
+{
+    $results = [];
 
-            return response()->json([
-                'message' => 'Migraciones ejecutadas exitosamente',
-                'output' => $output
-            ]);
+    try {
+        $tenants = Tenant::all();
 
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error al ejecutar migraciones: ' . $e->getMessage(),
-                'status' => 'error'
-            ], 500);
+        foreach ($tenants as $tenant) {
+            try {
+                tenancy()->initialize($tenant);
+
+                Artisan::call('migrate', [
+                    '--force' => true,
+                    '--database' => 'tenant', // 🔑 CLAVE
+                    '--path' => 'database/migrations/tenant',
+                ]);
+
+                $results[] = [
+                    'tenant_id' => $tenant->id,
+                    'status' => 'success',
+                    'output' => Artisan::output(),
+                ];
+
+            } catch (\Exception $e) {
+                $results[] = [
+                    'tenant_id' => $tenant->id,
+                    'status' => 'error',
+                    'message' => $e->getMessage(),
+                ];
+            } finally {
+                tenancy()->end();
+            }
         }
+
+        return response()->json([
+            'message' => 'Migraciones ejecutadas para los tenants',
+            'results' => $results,
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'message' => 'Error general al ejecutar migraciones',
+            'error' => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     /**
      * Ejecutar seeders
