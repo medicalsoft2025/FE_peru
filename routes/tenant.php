@@ -82,7 +82,7 @@ Route::middleware([
     // ========================
     // RUTAS PROTEGIDAS (CON AUTENTICACIÓN)
     // ========================
-    Route::prefix('v1')->middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::prefix('v1')->group(function () {
 
         // ========================
         // AUTENTICACIÓN Y USUARIO
