@@ -514,6 +514,7 @@ class DocumentService
 
     public function createBoleta(array $data): Boleta
     {
+        Log::info('Creando boleta con datos:', $data);
         return DB::transaction(function () use ($data) {
             // Validar y obtener entidades
             $company = Company::findOrFail($data['company_id']);
