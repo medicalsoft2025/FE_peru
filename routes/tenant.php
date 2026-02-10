@@ -53,7 +53,7 @@ Route::prefix('')->group(function () {
 Route::middleware([
     InitializeTenancyByDomain::class,
     PreventAccessFromCentralDomains::class,
-])->prefix('')->group(function() {
+])->group(function() {
 
     // ========================
     // RUTAS PÚBLICAS
@@ -477,6 +477,6 @@ Route::middleware([
 
     // Rutas adicionales (Consulta CPE Mejorada)
     // Note: api_consulta_mejorada.php defines its own prefix 'v1'. 
-    // Since we are inside 'api/pe', it will become 'api/pe/v1/...' which is correct.
+    // Since we are inside 'pe/sunat', it will become 'pe/sunat/v1/...' which is correct.
     require __DIR__.'/api_consulta_mejorada.php';
 });

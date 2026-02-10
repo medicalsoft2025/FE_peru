@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         //web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/tenant.php',
-        apiPrefix: 'pe/api',
+        apiPrefix: 'pe/sunat',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
